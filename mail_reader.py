@@ -1,24 +1,18 @@
+# pylint: skip-file
+
 from mail_vendor import *
 import email
 
 from utils import logif, logifelse
 
-accounts = {
-    '163': {
-        'host': 'pop.163.com',
-        'username': 'bangozero@163.com',
-        'password': '',
-    },
-    'sina': {
-        'host': 'pop.sina.com',
-        'username': 'bangozero@sina.com',
-        'password': '',
-    }
-}
+try:
+    from private import ACCOUNTS
+except ImportError:
+    account = {}
 
 
 def start(account='163'):
-    conn = get_pop_conn(**accounts[account])
+    conn = get_pop_conn(**ACCOUNTS[account])
     print_mail_statistics(conn)
     messages = get_all_messages(conn)
 
@@ -29,7 +23,7 @@ def start(account='163'):
 
 
 def analyze_mail(mail):
-    subject, encode_str = email.header.decode_header(mail['subject'])[0]
+    subject, encode_str = email.Header.decode_header(mail['subject'])[0]
     print(subject.decode(encode_str))  # py3: str(subject, encode_str)
 
     show_message(mail)
@@ -49,7 +43,7 @@ def show_message(mail, isdeep=False):
         else:
             try:
                 print('---   %s   ---' % mail['Content-Type'])
-                print(str(mail.get_payload(decode=mail['Content-Transfer-Encoding']), content_type))
+                print(mail.get_payload(decode=mail['Content-Transfer-Encoding']).decode(content_type))
             except UnicodeDecodeError:
                 print(mail)
 
