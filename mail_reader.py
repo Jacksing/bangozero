@@ -7,12 +7,12 @@ accounts = {
     '163': {
         'host': 'pop.163.com',
         'username': 'bangozero@163.com',
-        'password': '111aaa',
+        'password': '',
     },
     'sina': {
         'host': 'pop.sina.com',
         'username': 'bangozero@sina.com',
-        'password': '111aaa',
+        'password': '',
     }
 }
 
