@@ -1,10 +1,15 @@
+# encoding: utf8
 # pylint: skip-file
 
 import json
 from email.header import decode_header
+from email.mime.base import MIMEBase
 
-from mail_vendor import *
+from vendor import *
 from utils import logif, logifelse, log
+
+from constrants.mail_words import \
+    TG_CONTENT_MAIN_TYPE, TG_CONTENT_SUB_TYPE, TG_FILENAME
 
 try:
     from private import ACCOUNTS
@@ -12,17 +17,16 @@ except ImportError:
     account = {}
 
 
-TELEGRAPH_FILENAME = 'telegraph'
-TELEGRAPH_CONTENT_TYPE = 'application/octet-stream'
-
-
 def start(account='163'):
-    conn = connect(**ACCOUNTS[account])
-    messages = get_all_mines(conn)
-    conn.quit()
+    wa = ACCOUNTS[account]
+    conn = connect(wa['pop'], wa['username'], wa['password'])
+    # messages = get_all_mimes(conn)
+    # conn.quit()
 
-    mail = get_message_from_mine(messages[-1])
+    # mail = get_message_from_mime(messages[-1])
     # analyze_mail(mail)
+
+    mail = get_message_from_mime(conn.retr(conn.stat()[0]))
 
     telegraph_obj = get_telegraph_obj_from_mail(mail)
     if telegraph_obj:
@@ -86,11 +90,11 @@ def get_telegraph_from_mail(mail):
             if telegraph != None:
                 return telegraph
     else:
-        if mail.get_content_type() == TELEGRAPH_CONTENT_TYPE and mail.get_filename() == TELEGRAPH_FILENAME:
+        mime = MIMEBase(TG_CONTENT_MAIN_TYPE, TG_CONTENT_SUB_TYPE)
+        if mail.get_content_type() == mime.get_content_type() and mail.get_filename() == TG_FILENAME:
             return mail.get_payload(decode=mail['Content-Transfer-Encoding'])
     return None
 
 
 if __name__ == '__main__':
     start('163')
-
