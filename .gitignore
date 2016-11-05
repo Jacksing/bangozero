@@ -141,3 +141,4 @@ $RECYCLE.BIN/
 # vscode folder
 .vscode/
 private.py
+settings/accounts.py

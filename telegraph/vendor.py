@@ -1,12 +1,10 @@
 # encoding: utf8
 
 import poplib
-import imaplib
-import smtplib
-from email import parser, message_from_string
+from email import message_from_string
 from email.header import decode_header
 
-from utils import log
+from utils.logger import log
 
 
 def connect(host, username, password):
@@ -25,7 +23,7 @@ def _get_all(pop_conn, as_message=True):
     """
     count, total_size = pop_conn.stat()
     if as_message:
-        return [get_message_from_mime(pop_conn.retr(i)) for i in range(1, count+1)]
+        return [parse_message_from_mime(pop_conn.retr(i)) for i in range(1, count+1)]
     else:
         return [pop_conn.retr(i) for i in range(1, count+1)]
 
@@ -44,17 +42,16 @@ def get_all_messages(pop_conn):
     return _get_all(pop_conn)
 
 
-def get_message_from_mime(mime):
+def parse_message_from_mime(mime):
     """
     Parse an orginal Mime format into a Message object model.
     """
     return message_from_string('\n'.join([line.decode('utf-8') for line in mime[1]]))
 
 
-def get_subject_from_message(message):
-    subject, encode_str = decode_header(message['subject'])[0]
+def get_headstring_from_message(message, item):
+    """
+    Get decoded head value of the specified item.
+    """
+    subject, encode_str = decode_header(message[item])[0]
     return subject.decode(encode_str)
-
-
-if __name__ == '__main__':
-    pass
