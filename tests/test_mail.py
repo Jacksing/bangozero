@@ -11,37 +11,46 @@ from telegraph.reader import \
     get_telegraph_obj_from_message, walk_message
 from telegraph.sender import send_telegraph
 from utils.logger import log, logifelse
-from utils.inspect import has_all_key
+from utils.checker import has_all_key
 
 target_mail_addresses = [
     'bangozero@163.com',
     'bangozero@sina.com',
     'jacksingtang@buoyancyinfo.com',
+    # 'frankxu@buoyancyinfo.com',
 ]
+
+MAIL_SUBJECT = 'this is test mail from test_mail module'
+
+MAIL_CONTENT = '''
+hello bangozero
+
+this is a mail from python sender for test purpose.
+if you subscripted this service, please ignore this mail.
+otherwise please send a mail to us to reject this subscrption.
+
+best regards
+python sender group, shanghai
+'''
 
 
 def _check_test_settings():
+    """
+    Check whether necessary configuration is set in django settings.
+    """
     accounts = getattr(settings, 'ACCOUNTS', None)
     if not accounts or not type(accounts) is dict:
         raise ValueError('cannot find valid test accounts in settings')
     for value in accounts.values():
         if not has_all_key(value, ['svr', 'name', 'addr', 'pw']):
             raise ValueError('invalid accounts in settings')
+    # --------
+    # todo: add more check logic here for new test functions.
+    # --------
 _check_test_settings()
 
 
 def send_mail_to_all_with_work_account(to_addrs=target_mail_addresses):
-    context = '''
-    hello bangozero
-
-    this is a mail from python sender for test purpose.
-    if you subscripted this service, please ignore this mail.
-    otherwise please send a mail to us to reject this subscrption.
-
-    best regards
-    python sender group, shanghai
-    '''
-
     identify_key = str(uuid1())
     telegraph = json.dumps({
         'id': identify_key,
@@ -52,7 +61,7 @@ def send_mail_to_all_with_work_account(to_addrs=target_mail_addresses):
     log('\n'.join(['%s%s' % (' ' * 4, addr) for addr in to_addrs]))
 
     try:
-        send_telegraph(to_addrs, 'this is test mail from test_mail module', context, [telegraph])
+        send_telegraph(to_addrs, MAIL_SUBJECT, MAIL_CONTENT, [telegraph])
     except Exception as ex:
         log('send mail failed, %s' % ex.message)
         return False, identify_key

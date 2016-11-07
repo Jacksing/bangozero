@@ -61,7 +61,14 @@ def send_mail(smtp_server, from_name, from_addr, from_addr_passwd, to_addrs, sub
     message['To'] = ','.join(to_addrs)
     message['Date'] = formatdate(localtime=True)
     message['Subject'] = subject
-    message.attach(MIMEText(text))
+
+    context = MIMEText(text, _charset='utf-8')
+    # <ref>: http://outofmemory.cn/code-snippet/1464/python-send-youjian-resolve-suoyou-luanma-question
+    # uncomment following line if messy code appear in mail context
+    #
+    # context["Accept-Language"]="zh-CN"
+    # context["Accept-Charset"]="ISO-8859-1,utf-8"
+    message.attach(context)
 
     for pl in payloads:
         message.attach(pl)
