@@ -15,3 +15,5 @@ from tests import *
 
 
 ENCRYPT_TELEGRAPH = True
+PRIKEY_FILENAME = 'private.pem'
+PUBKEY_FILENAME = 'public.pem'
