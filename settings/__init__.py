@@ -12,3 +12,6 @@ except ImportError:
     WORK_ACCOUNT = None
 
 from tests import *
+
+
+ENCRYPT_TELEGRAPH = True

@@ -9,6 +9,7 @@ from email.mime.base import MIMEBase
 
 from django.conf import settings
 
+from crypto import decrypt_json
 from utils.logger import logif, logifelse, log
 
 
@@ -99,6 +100,8 @@ def get_telegraph_obj_from_message(message):
         telegraph = get_telegraph_from_message(message)
         if telegraph == None:
             return None
+        if settings.ENCRYPT_TELEGRAPH:
+            telegraph = decrypt_json(telegraph)
         return json.loads(telegraph.decode('utf-8'))
     except Exception as ex:
         log(ex.message)

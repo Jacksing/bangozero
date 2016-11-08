@@ -1,8 +1,9 @@
+import json
 from base64 import b64encode, b64decode
 
 from Crypto import Random
-from Crypto.Cipher import PKCS1_v1_5, DES
-from Crypto.Cipher.DES import DESCipher
+from Crypto.Cipher import PKCS1_v1_5, AES
+from Crypto.Cipher.AES import AESCipher
 from Crypto.PublicKey import RSA
 from django.conf import settings
 
@@ -77,12 +78,12 @@ def encrypt_json(value, output='base64'):
       output: string
         output format in fields of base64/str/dict.
     """
-    key = random_str()
-    cipher = DESCipher(key).encrypt(value) # todo: jacksing> check whether needs parse to base64
-    # cipher = b64encode(DESCipher(key).encrypt(value))
+    key = Random.new().read(AES.block_size)
+    iv = Random.new().read(AES.block_size)
+    cipher = b64encode(AESCipher(key, AES.MODE_CFB, iv).encrypt(value))
 
     result_dict = {
-        ENCRYPT_JSON_KEY_NAME: encrypt(key),
+        ENCRYPT_JSON_KEY_NAME: encrypt(key + iv),
         ENCRYPT_JSON_CIPHER_NAME: cipher,
     }
 
@@ -104,19 +105,9 @@ def decrypt_json(value, charset='base64', output=''):
     if not has_all_key(json_dict, [ENCRYPT_JSON_KEY_NAME, ENCRYPT_JSON_CIPHER_NAME]):
         return ValueError('Invalid json cipher.')
 
-    key = json_dict[ENCRYPT_JSON_KEY_NAME]
-    cipher = json_dict[ENCRYPT_JSON_CIPHER_NAME]  # todo: jacksing> needs to b64decode according to <encrypt_json>
-    # cipher = b64decode(json_dict[ENCRYPT_JSON_CIPHER_NAME])
-    return DESCipher(key).decrypt(cipher)
-
-
-def start():
-    # generate_keypair()
-    # rstr = random_str()
-    # print(rstr)
-    # cipher = encrypt(rstr)
-    # print(cipher)
-    # print(decrypt(cipher))
+    key = decrypt(json_dict[ENCRYPT_JSON_KEY_NAME])  # combimed by key + iv
+    iv = key[AES.block_size:]
+    key = key[0:AES.block_size]
     
-    telegraph = encrypt_json({'name': 'jacksing', 'age': 35})
-    receive = decrypt_json(telegraph)
+    cipher = b64decode(json_dict[ENCRYPT_JSON_CIPHER_NAME])
+    return AESCipher(key, AES.MODE_CFB, iv).decrypt(cipher)

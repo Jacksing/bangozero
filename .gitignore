@@ -142,3 +142,6 @@ $RECYCLE.BIN/
 .vscode/
 private.py
 settings/accounts.py
+private.pem
+public.pem
+public.der

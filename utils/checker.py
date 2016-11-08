@@ -2,6 +2,7 @@
 import json
 from six import string_types
 
+
 def has_all_attr(object, name_list):
     for name in name_list:
         if not hasattr(object, name):
@@ -21,7 +22,7 @@ def has_all_key(object, key_list):
 def _ensure_json_str_or_dict(target):
     def _ensure_json_str_or_dict_l2(func):
         def _ensure_json_str_or_dict_l3(value, *args):
-            if type(value) is string_types:
+            if isinstance(value, string_types):
                 json_obj = json.loads(value)
                 json_str = value
             else:
@@ -35,7 +36,6 @@ def _ensure_json_str_or_dict(target):
             raise ValueError("'value' is not in a json dict format.")
         return _ensure_json_str_or_dict_l3
     return _ensure_json_str_or_dict_l2
-
 
 
 """

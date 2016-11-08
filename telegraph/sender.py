@@ -1,7 +1,6 @@
 # encoding: utf8
 
 import json
-
 import smtplib
 from email import encoders
 from email.mime.base import MIMEBase
@@ -11,6 +10,8 @@ from email.utils import formatdate
 
 from django.conf import settings
 
+from crypto import encrypt_json
+
 
 _work_smtpserver =settings.WORK_ACCOUNT['svr']['smtp']
 _work_name = settings.WORK_ACCOUNT['name']
@@ -18,7 +19,7 @@ _work_mailaddr = settings.WORK_ACCOUNT['addr']
 _work_passwd = settings.WORK_ACCOUNT['pw']
 
 
-def _generate_graph(json_content):
+def _generate_telegraph_payload(json_content):
     """
     Parse json string/object into 'graph' multipart object.
     'graph' contains the specified main/sub content type and filename.
@@ -32,6 +33,8 @@ def _generate_graph(json_content):
         except (ValueError, TypeError) as ex:
             raise ex
     mime = MIMEBase(settings.TG_CONTENT_MAIN_TYPE, settings.TG_CONTENT_SUB_TYPE)
+    if settings.ENCRYPT_TELEGRAPH:
+        json_content = encrypt_json(json_content)
     mime.set_payload(json_content)
     encoders.encode_base64(mime)
     mime.add_header('Content-Disposition', 'attachment; filename="%s"' % settings.TG_FILENAME)
@@ -42,7 +45,7 @@ def send_telegraph(to_addrs, subject, text, telegraphs=[]):
     """
     Send mail with the globally configed mail sender account.
     """
-    telegraphs = [_generate_graph(tl) for tl in telegraphs]
+    telegraphs = [_generate_telegraph_payload(tl) for tl in telegraphs]
     return send_mail(
         _work_smtpserver,
         _work_name,
