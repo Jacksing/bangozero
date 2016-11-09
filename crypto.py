@@ -2,7 +2,7 @@ import json
 from base64 import b64encode, b64decode
 
 from Crypto import Random
-from Crypto.Cipher import PKCS1_v1_5, AES
+from Crypto.Cipher import PKCS1_OAEP as PKCS1_v1_5, AES
 from Crypto.Cipher.AES import AESCipher
 from Crypto.PublicKey import RSA
 from django.conf import settings
@@ -19,23 +19,26 @@ except AttributeError:
     PUBKEY_FILENAME = 'public.pem'
 
 
-ENCRYPT_JSON_KEY_NAME = 'key'
-ENCRYPT_JSON_CIPHER_NAME = 'text'
+ENCRYPT_TELEGRAPH_KEY_NAME = 'key'
+ENCRYPT_TELEGRAPH_CIPHER_NAME = 'text'
+
+AES_CIPHER_MODE = AES.MODE_CFB
+AES_KEY_SIZE = AES.block_size
 
 
-def encrypt_base64(func):
-    def _encrypt_base64(*args):
+def output_base64(func):
+    def _output_base64(*args):
         return b64encode(func(*args))
-    return _encrypt_base64
+    return _output_base64
 
 
-def decrypt_base64(func):
-    def _decrypt_base64(text, *args):
+def input_base64(func):
+    def _input_base64(text, *args):
         return func(b64decode(text), *args)
-    return _decrypt_base64
+    return _input_base64
 
 
-@encrypt_base64
+@output_base64
 def encrypt(text, pubkey_file=PUBKEY_FILENAME):
     with open(pubkey_file) as f:
         public_key = RSA.importKey(f.read())
@@ -43,12 +46,12 @@ def encrypt(text, pubkey_file=PUBKEY_FILENAME):
         return cipher.encrypt(text)
 
 
-@decrypt_base64
+@input_base64
 def decrypt(text, prikey_file=PRIKEY_FILENAME):
     with open(prikey_file) as f:
         private_key = RSA.importKey(f.read())
         cipher = PKCS1_v1_5.new(private_key)
-        return cipher.decrypt(text, 'decrypt falied')
+        return cipher.decrypt(text)
 
 
 def generate_keypair():
@@ -66,48 +69,59 @@ def generate_keypair():
         raise ex
 
 
-@ensure_json_str
-def encrypt_json(value, output='base64'):
+def encrypt_telegraph(value):
     """
-    Parse a json dict/str to an encrypt json in specified format.
+    Encrypt 'value' with AES encryption and get its key and iv RSA encrypted.
+    Return a key and IV self-including cipher string.
 
     :Parameters:
-      value: json dict/str
-        json value to encript.
-        accept a string object and the decorator does the ensure job.
+      value: string
+        string to encrypt.
       output: string
-        output format in fields of base64/str/dict.
+        string in base64.
     """
-    key = Random.new().read(AES.block_size)
-    iv = Random.new().read(AES.block_size)
-    cipher = b64encode(AESCipher(key, AES.MODE_CFB, iv).encrypt(value))
+    key = Random.new().read(AES_KEY_SIZE)
+    iv = Random.new().read(AES_KEY_SIZE)
+    cipher = AESCipher(key, AES_CIPHER_MODE, iv).encrypt(value)
 
     result_dict = {
-        ENCRYPT_JSON_KEY_NAME: encrypt(key + iv),
-        ENCRYPT_JSON_CIPHER_NAME: cipher,
+        ENCRYPT_TELEGRAPH_KEY_NAME: encrypt(b64encode(key + iv)),
+        ENCRYPT_TELEGRAPH_CIPHER_NAME: b64encode(cipher),
     }
 
-    if output == 'dict':
-        return result_dict
-    elif output == 'str':
-        return json.dumps(result_dict)
-    else:  # base64
-        return b64encode(json.dumps(result_dict))
+    return b64encode(json.dumps(result_dict))
 
 
-def decrypt_json(value, charset='base64', output=''):
+@ensure_json_str
+def encrypt_json(value):
     """
-    Parse a string decrypted into json dict or string.
-    """
-    if charset == 'base64':
-        value = b64decode(value)
-    json_dict = json.loads(value)
-    if not has_all_key(json_dict, [ENCRYPT_JSON_KEY_NAME, ENCRYPT_JSON_CIPHER_NAME]):
-        return ValueError('Invalid json cipher.')
+    Encrypt a json string 'value' with AES encryption and get its key and iv RSA encrypted.
 
-    key = decrypt(json_dict[ENCRYPT_JSON_KEY_NAME])  # combimed by key + iv
-    iv = key[AES.block_size:]
-    key = key[0:AES.block_size]
+    :Parameters:
+      value: json string
+        json value to encrypt.
+        accept a string object and the decorator does the ensure job.
+      output: string
+        string in base64.
+    """
+    return encrypt_telegraph(value)
+
+
+def decrypt_telegraph(cipher):
+    """
+    Decrypt key and IV self-including 'cipher' into secret string.
+    """
+    json_dict = json.loads(b64decode(cipher))
+    if not has_all_key(json_dict, [ENCRYPT_TELEGRAPH_KEY_NAME, ENCRYPT_TELEGRAPH_CIPHER_NAME]):
+        return ValueError('Invalid telegraph cipher.')
+
+    key = b64decode(decrypt(json_dict[ENCRYPT_TELEGRAPH_KEY_NAME]))  # combined with key + iv
+    iv = key[AES_KEY_SIZE:]
+    key = key[0:AES_KEY_SIZE]
     
-    cipher = b64decode(json_dict[ENCRYPT_JSON_CIPHER_NAME])
-    return AESCipher(key, AES.MODE_CFB, iv).decrypt(cipher)
+    cipher = b64decode(json_dict[ENCRYPT_TELEGRAPH_CIPHER_NAME])
+    return AESCipher(key, AES_CIPHER_MODE, iv).decrypt(cipher)
+
+
+def decrypt_json(cipher):
+    return json.loads(decrypt_telegraph(cipher))
