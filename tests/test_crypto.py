@@ -1,3 +1,6 @@
+# encoding: utf-8
+
+from base64 import b64encode, b64decode
 import json
 import os
 import sys
@@ -6,7 +9,10 @@ import unittest
 from django.conf import settings
 from Crypto import Random
 
-from crypto import generate_keypair, encrypt, decrypt, encrypt_json, decrypt_json, encrypt_telegraph, decrypt_telegraph
+from crypto import \
+    CSCrypto, generate_keypair, encrypt, decrypt, \
+    encrypt_json, decrypt_json, encrypt_telegraph, decrypt_telegraph
+from utils.functions import random_str
 
 
 class TestCrypto(unittest.TestCase):
@@ -19,43 +25,53 @@ class TestCrypto(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testDecryptReversesEncrypt(self):
-        text = Random.new().read(8)
+    def test_encrypt_circuit(self):
+        text = Random.new().read(10)
+        cipher = encrypt('text')
+        flyback = decrypt(cipher)
         self.assertEqual(text, decrypt(encrypt(text)), "'decrypt' not reverses 'encrypt'")
 
-    def testDecryptTelegraphReversesEncryptTelegraph(self):
+    def test_encrypt_telegraph_circuit(self):
         text = Random.new().read(500)
-        self.assertEqual(text, decrypt_telegraph(encrypt_telegraph(text)), "'decrypt_telegraph' not reverses 'encrypt_telegraph'")
+        # text = random_str(500).encode('utf-8')
+        self.assertEqual(
+            text, decrypt_telegraph(encrypt_telegraph(text)),
+            "'decrypt_telegraph' not reverses 'encrypt_telegraph'")
 
-    def testDecryptJsonReversesEncryptJson(self):
+    def test_encrypt_json_circuit(self):
         dt = {'name': 'jacksing', 'age': 35, 'address': ['1234567890',]}
         self.assertDictEqual(dt, decrypt_json(encrypt_json(dt)), "'decrypt_json' not reverses 'encrypt_json'")
 
-    def testDotNetEncryptedCipher(self):
-        dotNetCipher = """
-fueQp1y5FpZhHkIho25Db6z8np/1DcIvTPWwRgfgUD+VIZfCkS8cBCdbGicNG+CxQSXyOHLhsLVI5nkhYyUkmjoe1hxk+EE/s80K1/8RgCA3fp9siE8Ccd4Z56loZ53Xiupv5lcxIbBJQsPe4qy+4AIXzevz6U6WIFZvfz4lt+U=
-Ff2R1Eg60oadjy4ebDDVZW2nZKcd2bbtWtxv3IcVW2txHJTCJRjLQhTvprza9rocs2gUSmOpskodKo3gzt/1dHvyjSvX8RXcjj+nhL7jeZIyzY7ReBshPG24vZBn8tXRmTP/M1HfMYprrSJQFEilGkvuiLBAjmt7B55zj47kWqU=
-blN14+8JYpfsxppIly+wUeP3De3KcDFOh7ZuJUR3HNPlxDQb1FXOH3xfShB3YkuKKnfAQO/rzfFxUmm6zD2h8xRYy/BWluCXnLQ0NevLXod4eISWg6QGCdzkj9nhQDcD3fQAejYA1sxpwpIEZSg2eXv7pbAqK7hAq/HlcHX1atM=
-Ae79ZZMmR/qvBSc9wlML9Mbth4GzKCs7kWWqWLqSz0BHFfeZvNtNziwaIB0sfAOF5E0KJ3hJva8jf7o0s8wZ3QaGfv/GrOB01ALUj9PglYHBam7cLQKqhhCOXmhoH3Pd+h3cH39J+6Ch+qQ+MW1ADpoPKE5AzTqdChdmGaKHGM0=
-M8R51Gf/TQ2ttR0a2BrKEmbKKNcxopPyDDv+72VozEbbxz0z3JZEvClnTRUb0Ok/ST2x0ly2sb/DEMdBESLpUr1+PgKLDITyClJggvHTceWD4jP8VZMg+aI5oN0v5QRjC2KxEh7vN726FCkE2oJOoTqTKAc4+5CtBQkS7oYCSpg=
-cqApEqiuQzYHgzxQuWtgbEDD8lyCfE7E0QVEl72yF4SVpMQigfJMwNFzsyYBqE28A51pAbYNvmPCnZFigw9U3gEL89U5bfsZSlgmd0+FeeXQWlHbRDBWAKeB5v1DC8GsM6F/7UF5y2rIQazsRjS8Gvz9+pcW3gdNDl/Kh8E4DDU=
-KV6E8cePUskASeFefnwlaIE5uNv3VpiK5bttGCgIDqFBbKimSvXdaEUsf9yBgdmCSsP3ntwxf66jh3s0hiwL48MFHDukbLkEkpfA+ds2ACRXQqgOWy5l/+QqQ5FFtYCLeURPZQV1PYBTnQYp20dYfbcFLOzxGZ5oNw+ehc0/MKA=
-cehLZ9/x8rOyojJOEzNnj9JW0oPrUV2Tm6/1DazCRH67H/HM7nFRkYcjKLfJ89fp34Ly+UtdlcO3xqymVunHB4fIZ3Qrr5dHqxpaPfbjaiX8MOKJo9TV+OQ1jS3TvtsiitC0uStPZaykKqCcT/F0njKgJuOYZRMcsVwO4KTvK2g=
-FWRP9flsQ+DgECNUnybRdnYteujJSY+2Qwus4GCHqTcQrLiakk/B+Hscrmf+parkwRLDKTRgKKNr8MpkHhGLYlg+uJrt8ZGRzXIrJOC8Wy89hEejj/IR6DSjcvlkCb+aq1+xPV4f0bE72Mm0Lh/eaK8fdrzA9yB0IOgtyHnuZEA=
-Gpy1JX5a31e8nMIZgLVq/56AZM6LikqXHtf3PgRebOVGHiQ4LAZK+BcmYidpZ4GmA+80oOzmhAo9lDiguTQLnJb5N10wLmMZMm3cbeYMdvYCa+i5ywhySZ+tHtCxE2cRm5IgQSB9cQYSyH0ISpuesYXwzljKQVDvLWjBstjqN7E=
-VNJJ8VEWT2cc/IyZ6kg0JUZOEfMV4wfRi//jsM0nMx9ZEF4yslQYloR+3sw17EhjQN6Ev6U1uQ2ieMY0HOCoHef/vWrO62CuKZj3qTPSVfbdFlfhl8iZV7+9I/CWy8zUJlpND0i3wjQPhQBHj+UPQtvqZanuZGbPli23JO5llzM=
-aHabfTQtQ0NA2kWNXwIVisMDQRSxZELchqKK6PSIQ+sQ7Vljdoss0G2K8PlMw8D1P+bptHF/dt1g9qc016WGk1nAbKS8FdLlfe3nu6aduQL6viIVhedOPdLuvH5qGszDl3Vi0CUf4x7GcBikM6zt9tNKlL1OMfhtfnfe1nK+xtQ=
-"""
-        secret = 'Hello world - 1'
-        for cipher in dotNetCipher.strip().split('\n'):
-            self.assertEqual(secret, decrypt(cipher), 'decrypt dotnet encrypted string failed')
+    def test_cs_encrypt(self):
+        secret = random_str(10)
+        self.assertEqual(secret, decrypt(CSCrypto().encrypt(secret)), "'decrypt' not reverses 'cs_encrypt'")
 
-    def testDotNetEncryptedTelegraph(self):
-        telegraphCipher = """
-        eyJrZXkiOiJEcDg1Zm03c0U4Yk04T1ZIdGsyVGNiYWdmYmt2Znpxc043c1k5d3UvTTl3V0F3VUpzOGpabWE0ZCtUNkdZc1VBMTZmcXlJNU1GMXBNbUhaVC9YT2poSDJ5cTdXamV1SktqL21xTUNGMFMvU1hlTXdPckhRWGRPblZINlBEYkNhckE0OUpCUDRRd2ZJaVNXWmx0eGlVL2Q0dmtCWlpPVnVxQXVJZzdBRVZEc289IiwidGV4dCI6InY1YS9sSjJ5eXVEYVlncGxWWkhzVGdEbVdRR0VGdlBNRzNzbFFPMFZjUzQ9In0=
-        """
-        decrypted = decrypt_json(telegraphCipher.strip())
-        print(decrypted)
+    def test_cs_decrypt(self):
+        secret = random_str(10)
+        self.assertEqual(secret, CSCrypto().decrypt(encrypt(secret)), "'cs_decrypt' not reverses 'encrypt'")
+
+    def test_cs_encrypt_telegraph(self):
+        telegraph = random_str(500)
+        self.assertEqual(
+            telegraph, decrypt_telegraph(CSCrypto().encrypt_telegraph(telegraph)),
+            "'decrypt_telegraph' not reverses 'cs_encrypt_telegraph'")
+
+    def test_cs_decrypt_telegraph(self):
+        telegraph = random_str(500)
+        self.assertEqual(
+            telegraph, CSCrypto().decrypt_telegraph(encrypt_telegraph(telegraph)),
+            "'cs_decrypt_telegraph' not reverses 'encrypt_telegraph'")
+
+    def test_cs_encrypt_circuit(self):
+        text = random_str(10)
+        self.assertEqual(text, CSCrypto().decrypt(CSCrypto().encrypt(text)), "'cs_decrypt' not reverses 'cs_encrypt'")
+
+    def test_cs_encrypt_telegraph_circuit(self):
+        text = random_str(500)
+        self.assertEqual(
+            text, CSCrypto().decrypt_telegraph(CSCrypto().encrypt_telegraph(text)),
+            "'cs_decrypt_telegraph' not reverses 'cs_encrypt_telegraph'")
+
 
 def _generate_public_and_private_key_if_not_exist():
     prifile = settings.PRIKEY_FILENAME
@@ -72,21 +88,31 @@ def get_test_all_suite():
 
 def get_test_python_suite():
     return unittest.TestSuite(map(TestCrypto, [
-        'testDecryptReversesEncrypt',
-        'testDecryptJsonReversesEncryptJson',
-        'testDecryptTelegraphReversesEncryptTelegraph'
+        'test_encrypt_circuit',
+        'test_encrypt_telegraph_circuit',
+        'test_encrypt_json_circuit',
     ]))
 
 
 def get_test_dotnet_suite():
     return  unittest.TestSuite(map(TestCrypto, [
-        'testDotNetEncryptedTelegraph',
-        'testDotNetEncryptedCipher'
+        'test_cs_encrypt_circuit',
+        'test_cs_encrypt_telegraph_circuit',
+    ]))
+
+
+def get_test_py_interact_with_cs():
+    return  unittest.TestSuite(map(TestCrypto, [
+        'test_cs_encrypt',
+        'test_cs_decrypt',
+        'test_cs_encrypt_telegraph',
+        'test_cs_decrypt_telegraph',
     ]))
 
 
 def start():
-    # suite = get_test_all_suite()
-    suite = get_test_python_suite()
+    suite = get_test_all_suite()
+    # suite = get_test_python_suite()
     # suite = get_test_dotnet_suite()
-    unittest.TextTestRunner(verbosity=5).run(suite)
+    # suite = get_test_py_interact_with_cs
+    unittest.TextTestRunner(verbosity=1).run(suite)
