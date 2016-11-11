@@ -101,8 +101,9 @@ def get_telegraph_obj_from_message(message):
         if telegraph == None:
             return None
         if settings.ENCRYPT_TELEGRAPH:
-            telegraph = decrypt_json(telegraph)
-        return json.loads(telegraph.decode('utf-8'))
+            return decrypt_json(telegraph)
+        else:
+            return json.loads(telegraph.decode('utf-8'))
     except Exception as ex:
         log(ex.message)
         return None
