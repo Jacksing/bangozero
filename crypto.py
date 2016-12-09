@@ -2,13 +2,13 @@
 #
 #  Encrypt and decrypt telegraph.
 #
-# Written in 2016 by Jacksing Tang <iterrole@163.com>
-# 
+# Written in 2015 by Jacksing Tang <iterrole@163.com>
+#
 # ===================================================================
 # The contents of this file are defined to apply a cryptography to
 # make security for a kind of mail payload called 'telegraph' while
 # it is transported by mail.
-# 
+#
 # As the cryptography may be used in DotNet environment, here also
 # applys a 'CSCrypto' class which written in C# to support the scene.
 # ===================================================================
@@ -27,13 +27,9 @@ from utils.checker import ensure_json_str, has_all_key
 from utils.functions import execmd
 
 
-try:
-    PRIKEY_FILENAME = settings.PRIKEY_FILENAME
-    PUBKEY_FILENAME = settings.PUBKEY_FILENAME
-except AttributeError:
-    PRIKEY_FILENAME = 'private.pem'
-    PUBKEY_FILENAME = 'public.pem'
 
+PRIKEY_FILENAME = getattr(settings, 'PRIKEY_FILENAME', 'private.pem')
+PUBKEY_FILENAME = getattr(settings, 'PUBKEY_FILENAME', 'public.pem')
 
 ENCRYPT_TELEGRAPH_KEY_NAME = 'key'
 ENCRYPT_TELEGRAPH_CIPHER_NAME = 'text'
@@ -56,19 +52,21 @@ def input_base64(func):
 
 
 @output_base64
-def encrypt(secret, pubkey_file=PUBKEY_FILENAME):
-    with open(pubkey_file) as f:
-        public_key = RSA.importKey(f.read())
-        rsa = PKCS1_v1_5.new(public_key)
-        return rsa.encrypt(secret)
+def encrypt(secret, pubkey_file=PUBKEY_FILENAME, public_key=None):
+    if not public_key:
+        with open(pubkey_file) as fobj:
+            public_key = RSA.importKey(fobj.read())
+    rsa = PKCS1_v1_5.new(public_key)
+    return rsa.encrypt(secret)
 
 
 @input_base64
-def decrypt(cipher, prikey_file=PRIKEY_FILENAME):
-    with open(prikey_file) as f:
-        private_key = RSA.importKey(f.read())
-        rsa = PKCS1_v1_5.new(private_key)
-        return rsa.decrypt(cipher)
+def decrypt(cipher, prikey_file=PRIKEY_FILENAME, private_key=None):
+    if not private_key:
+        with open(prikey_file) as fobj:
+            private_key = RSA.importKey(fobj.read())
+    rsa = PKCS1_v1_5.new(private_key)
+    return rsa.decrypt(cipher)
 
 
 def generate_keypair():
@@ -78,15 +76,15 @@ def generate_keypair():
     private_key = rsa.exportKey()
     public_key = rsa.publickey().exportKey()
     try:
-        with open(PRIKEY_FILENAME, 'w') as f:
-                f.write(private_key)
-        with open(PUBKEY_FILENAME, 'w') as f:
-            f.write(public_key)
+        with open(PRIKEY_FILENAME, 'w') as fobj:
+            fobj.write(private_key)
+        with open(PUBKEY_FILENAME, 'w') as fobj:
+            fobj.write(public_key)
     except IOError as ex:
         raise ex
 
 
-def encrypt_telegraph(secret):
+def encrypt_telegraph(secret, public_key=None):
     """
     Encrypt 'secret' with AES encryption and get its key and iv RSA encrypted.
     Return a key and IV self-including cipher string.
@@ -103,7 +101,7 @@ def encrypt_telegraph(secret):
     cipher = AESCipher(key, AES_CIPHER_MODE, iv).encrypt(secret)
 
     result_dict = {
-        ENCRYPT_TELEGRAPH_KEY_NAME: encrypt(b64encode(key + iv)),
+        ENCRYPT_TELEGRAPH_KEY_NAME: encrypt(b64encode(key + iv), public_key=public_key),
         ENCRYPT_TELEGRAPH_CIPHER_NAME: b64encode(cipher),
     }
 
@@ -111,7 +109,7 @@ def encrypt_telegraph(secret):
 
 
 @ensure_json_str
-def encrypt_json(secret):
+def encrypt_json(secret, public_key=None):
     """
     Encrypt a json string 'secret' with AES encryption and get its key and iv RSA encrypted.
 
@@ -122,10 +120,10 @@ def encrypt_json(secret):
       output: string
         string in base64.
     """
-    return encrypt_telegraph(secret)
+    return encrypt_telegraph(secret, public_key)
 
 
-def decrypt_telegraph(cipher):
+def decrypt_telegraph(cipher, private_key=None):
     """
     Decrypt key and IV self-including 'cipher' into secret string.
     """
@@ -133,25 +131,27 @@ def decrypt_telegraph(cipher):
     if not has_all_key(json_dict, [ENCRYPT_TELEGRAPH_KEY_NAME, ENCRYPT_TELEGRAPH_CIPHER_NAME]):
         return ValueError('Invalid telegraph cipher.')
 
-    key = b64decode(decrypt(json_dict[ENCRYPT_TELEGRAPH_KEY_NAME]))  # combined with key + iv
-    iv = key[AES_KEY_SIZE:]
+    key = b64decode(
+        decrypt(json_dict[ENCRYPT_TELEGRAPH_KEY_NAME], private_key=private_key)
+    )  # combined with key + iv
+    iv = key[AES_KEY_SIZE:]  # pylint: disable=invalid-name
     key = key[0:AES_KEY_SIZE]
-    
+
     telegraph_cipher = b64decode(json_dict[ENCRYPT_TELEGRAPH_CIPHER_NAME])
     return AESCipher(key, AES_CIPHER_MODE, iv).decrypt(telegraph_cipher).rstrip(AES_PADDING)
 
 
-def decrypt_json(cipher):
-    return json.loads(decrypt_telegraph(cipher))
+def decrypt_json(cipher, private_key=None):
+    return json.loads(decrypt_telegraph(cipher, private_key))
 
 
-class CSCrypto:
-    _EXECUTOR = "D:/Work/bangoinfinite/telec/bin/Debug/telec.exe"
+class CSCrypto(object):
+    _EXECUTOR = os.path.join(settings.BASE_DIR, "cstelec/telec.exe")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         if not os.path.exists(self._EXECUTOR):
             raise EnvironmentError('cannot find a cmd line executor.')
-    
+
     def encrypt(self, secret, pubkey_file=PUBKEY_FILENAME):
         return execmd('%s rsa %s' % (self._EXECUTOR, secret))
 
